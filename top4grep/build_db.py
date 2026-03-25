@@ -5,6 +5,7 @@ import requests
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 from bs4 import BeautifulSoup
+import time
 
 from .utils import new_logger
 from .db import Base, Paper
@@ -20,6 +21,18 @@ NAME_MAP = {
         "USENIX": "uss",
         "CCS": "ccs",
         }
+
+# CONFERENCES = ["RAID", "ASIACCS", "ACSAC", "DSN", "ESORICS1", "ICSE"]
+# NAME_MAP = {
+#     "RAID": "raid",
+#     "ASIACCS": "asiaccs",
+#     "ACSAC": "acsac",
+#     "DSN": "dsn",
+#     "ESORICS1": "esorics",
+#     # "ESORICS2": "esorics",
+#     "ICSE": "icse",
+# }
+
 PACKAGE_DIR = Path(__file__).resolve().parent
 DB_PATH = PACKAGE_DIR / "data" / "papers.db"
 
@@ -51,7 +64,15 @@ def get_papers(name, year, build_abstract):
     else:
         extract_abstract = build_abstract
     try:
-        r = requests.get(f"https://dblp.org/db/conf/{conf}/{conf}{year}.html")
+        if name ==  "ESORICS1":
+            r = requests.get(f"https://dblp.org/db/conf/esorics/esorics{year}.html")
+        # elif name == "ESORICS2":
+        #     pass
+        #     # r = requests.get(f"https://dblp.org/db/conf/esorics/esorics{year}-2.html")
+        elif name == "ASIACCS" and year < 2021:
+            r = requests.get(f"https://dblp.org/db/conf/ccs/asiaccs{year}.html")
+        else:
+            r = requests.get(f"https://dblp.org/db/conf/{conf}/{conf}{year}.html")
         assert r.status_code == 200
 
         html = BeautifulSoup(r.text, 'html.parser')
@@ -68,12 +89,13 @@ def get_papers(name, year, build_abstract):
                 save_paper(name, year, title, authors, abstract)
             cnt += 1
     except Exception as e:
-        logger.warning(f"Failed to obtain papers at {name}-{year}")
+        logger.warning(f"Failed to obtain papers at {name}-{year}, error: {e}")
 
     logger.debug(f"Found {cnt} papers at {name}-{year}...")
 
 
 def build_db(build_abstract):
     for conf in CONFERENCES:
-        for year in range(2000, datetime.now().year+1):
+        for year in range(2020, datetime.now().year+1):
             get_papers(conf, year, build_abstract)
+            time.sleep(10)
